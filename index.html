@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Snooze.ai</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Snooze"><title>Snooze.ai</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -499,6 +499,8 @@ html[data-rs="11"] :is(.orbw .orb,#hero>.orb,.me .orb):before{background:conic-g
 html[data-rs="12"] :is(.orbw .orb,#hero>.orb,.me .orb):before{background:repeating-conic-gradient(#00ff6a 0 5deg,transparent 5deg 13deg)!important;animation:spinR 14s linear infinite;filter:drop-shadow(0 0 5px #00ff6a)}
 html[data-rs="13"] :is(.orbw .orb,#hero>.orb,.me .orb):before{background:conic-gradient(#f43f5e,#a855f7,#3b82f6,#22d3ee,#22c55e,#f59e0b,#f43f5e)!important;animation:spinR 5s linear infinite,hue 6s linear infinite}
 @media(prefers-reduced-motion:reduce){.orb svg{animation:none}}
+#app{transition:none!important}#app.kb .tabs,#app.kb .qr{display:none!important}#app.kb .scr{padding-bottom:6px!important}
+#app.kb,#app.kb *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 </style>
 </head>
 <body>
@@ -829,7 +831,7 @@ async function send(){
  text=text.replace(/^\/img\s+/i,'');
  if(!cur){cur={id:Date.now(),title:(text||'Фото').slice(0,40),t:Date.now(),msgs:[]};chats.unshift(cur)}S.cur=cur.id;sv('snz',S);const chat=cur;
  if(pics.length){IL.count+=pics.length;sv('snzImgLimits',IL)}
- const um={role:'user',content:text,imgs:pics.map(p=>p.t),full:pics.map(p=>p.f)};cur.msgs.push(um);saveChats();show();bubble(um,1);
+ const um={role:'user',content:text,imgs:pics.map(p=>p.t),full:pics.map(p=>p.f)};try{Object.defineProperty(um,'hi',{value:pics.map(p=>p.h||p.f),enumerable:false})}catch(_){}cur.msgs.push(um);saveChats();show();bubble(um,1);
  const am={role:'assistant',content:''};const el=bubble(am,1);el.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';busy=true;qr();
  try{
   const sys='Ты — '+S.name+', дружелюбный виртуальный помощник в приложении Snooze.ai. Отвечай на языке пользователя (по умолчанию по-русски), живо и по делу, без лишней воды. Начинай ответ сразу, без вступлений.'+(S.user?' Пользователя зовут '+S.user+' — обращайся к нему по имени, естественно и не в каждом сообщении.':'')+(S.persona?' Стиль общения, который попросил пользователь: '+S.persona+'.':'')+(S.about?' О пользователе: '+S.about+'.':'')+([' Отвечай очень коротко, 1-3 предложения.','',' Отвечай развёрнуто и подробно, с примерами.'][S.len==null?1:S.len]);
@@ -846,15 +848,54 @@ async function send(){
     if(hasI){try{if((await tmo(sample.limits(),4000)).images)o.images=blobs()}catch(_){}}
     const r=await sample(mk(),o);return (r&&r.text)||am.content||''};
    const viaKey=async()=>{if(!GROQ_KEY)throw {code:'nokey'};
-    const msgs=mk().map(m=>({role:m.role,content:m.content}));
-    if(hasI){const last=msgs[msgs.length-1];last.content=[{type:'text',text:last.content},...um.full.slice(0,5).map(d=>({type:'image_url',image_url:{url:d}}))]}
-    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),60000);
-    try{const mdl=await pickModel(hasI);
-     const body={model:mdl,max_tokens:S.len===2?6000:4096,messages:msgs};if(/gpt-oss/.test(mdl))body.reasoning_effort='low';
-     const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json','Authorization':'Bearer '+GROQ_KEY},body:JSON.stringify(body)});
-     const j=await r.json();if(!r.ok)throw {code:(r.status===401||r.status===403)?'badkey':'api',msg:j&&j.error&&j.error.message};
-     return String((j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim()}
-    finally{clearTimeout(to)}};
+    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),170000);
+    const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+    const raw=async(body)=>{let j=null;
+     for(let t=0;t<6;t++){
+      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json','Authorization':'Bearer '+GROQ_KEY},body:JSON.stringify(body)});
+      j=await r.json();if(r.ok)break;
+      const em=String(j&&j.error&&j.error.message||'');
+      if(r.status===401||r.status===403)throw {code:'badkey',msg:em};
+      const w=em.match(/try again in ([\d.]+)(ms|s|m)\b/i);
+      if(r.status===429&&w&&t<5){let ms=+w[1]*(w[2]==='ms'?1:w[2]==='s'?1000:60000);if(ms<=45000){await sleep(ms+500);continue}}
+      const lm=em.match(/Limit (\d+), Requested (\d+)/);
+      if(lm&&t<5){body.max_tokens=Math.max(300,Math.floor(+lm[1]*0.85));continue}
+      if(/reasoning_effort/i.test(em)&&body.reasoning_effort&&t<5){delete body.reasoning_effort;continue}
+      throw {code:'api',msg:em}}
+     const c=j.choices&&j.choices[0];
+     return {text:String((c&&c.message&&c.message.content)||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim(),cut:!!(c&&c.finish_reason==='length')}};
+    const call=async b=>(await raw(b)).text;
+    const NOMD=' Не используй markdown: никаких символов ** , * и #.';
+    try{
+     const msgs=mk().map(m=>({role:m.role,content:m.content}));
+     if(!hasI){
+      const mdl=await pickModel(false),body={model:mdl,max_tokens:S.len===2?3000:1500,messages:[{role:'system',content:'Отвечай по-русски.'+NOMD},...msgs]};
+      if(/gpt-oss/.test(mdl))body.reasoning_effort='low';
+      return await call(body)}
+     const SOLVE='Ты решаешь школьные тесты. Выводи ТОЛЬКО результат: без вступлений, без приветствий, без пояснений, без рассуждений, без итогового списка в конце.'+NOMD+' Формат строго такой для каждого задания:\n1. <текст задания одной строкой, без вариантов ответа>\nОтвет: <буква>) <текст верного варианта>\n\nМежду заданиями пустая строка. Если нужно расставить по порядку, пиши так: Ответ: Г, Б, В, А (и затем в скобках расшифровка через запятую). Если на фото несколько листов или вариантов, перед заданиями каждого листа напиши одну строку с названием варианта (например: 1 вариант). Внутри себя тщательно проверяй каждый вариант по фактам, выбирай один самый точный. Если текст задания обрезан или нечитаем, всё равно дай наиболее вероятный ответ и допиши в той же строке «(текст неполный)».';
+     const q0=(um.content||'').trim()||'Реши задания';
+     /* Этап 1: фото -> текст (в высоком разрешении) */
+     const vm=await pickModel(true),imgs=(um.hi&&um.hi.length?um.hi:um.full).slice(0,5),tr=[];
+     const ocrP='Перепиши ДОСЛОВНО весь печатный текст с этой фотографии: номера заданий, условия и ВСЕ варианты ответов (А, Б, В, Г) целиком, а также пустые клетки для ответа, если они есть. Лист может быть снят под углом, строки наклонены: читай внимательно, по порядку сверху вниз. Рукописные подписи (фамилии) пропусти. Если слово не читается, поставь [?]. Ничего не решай и не добавляй.';
+     for(let i=0;i<imgs.length;i++){
+      const first=[{type:'text',text:ocrP},{type:'image_url',image_url:{url:imgs[i]}}];
+      const mm=[{role:'user',content:first}];
+      const bb=()=>{const b={model:vm,max_tokens:900,messages:mm};if(/qwen/.test(vm))b.reasoning_effort='none';return b};
+      try{let r=await raw(bb()),tx=r.text;
+       for(let k=0;k<2&&r.cut&&tx;k++){mm.push({role:'assistant',content:tx},{role:'user',content:'Продолжи с того места, где остановился, без повторов.'});r=await raw(bb());tx+=' '+r.text;mm.length=1}
+       if(tx)tr.push((imgs.length>1?'Фото '+(i+1)+':\n':'')+tx)}
+      catch(e){if(e&&e.code==='badkey')throw e}
+     }
+     if(!tr.length){
+      toast('Не вышло прочитать текст, решаю по картинке','Фото','image');
+      const m2=[{role:'system',content:SOLVE},{role:'user',content:[{type:'text',text:q0},...imgs.map(d=>({type:'image_url',image_url:{url:d}}))]}];
+      const b={model:vm,max_tokens:900,messages:m2};if(/qwen/.test(vm))b.reasoning_effort='none';return await call(b)}
+     /* Этап 2: решение сильной текстовой моделью с размышлением */
+     const m3=[{role:'system',content:SOLVE},{role:'user',content:q0+'\n\nТекст с фото (распознан автоматически, возможны мелкие ошибки: исправляй по смыслу):\n'+tr.join('\n\n')}];
+     const tm=await pickModel(false),b2={model:tm,max_tokens:6000,messages:m3};
+     if(/gpt-oss/.test(tm))b2.reasoning_effort='high';
+     return await call(b2)
+    }finally{clearTimeout(to)}};
    for(let i=0;i<2&&!txt;i++){
     if(document.hidden)await new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)});
     try{txt=await viaHost()}catch(e){am.content='';am.shown=0;code=e&&e.code;if(code==='nohost'||code==='not_granted'||code==='unavailable')break;await new Promise(r=>setTimeout(r,600*(i+1)))}}
@@ -1015,8 +1056,8 @@ ftUI();
 document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
 let _lt=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-_lt<320&&!e.target.closest('#game,#pop,#sheet,#mapv'))e.preventDefault();_lt=n},{passive:false});
 (()=>{const vv=window.visualViewport,app=$('#app');if(!vv)return;
- const fit=()=>{window.scrollTo(0,0);if(vv.height>200&&window.innerHeight-vv.height>80)app.style.height=vv.height+'px';else app.style.height=''};
- vv.addEventListener('resize',fit);vv.addEventListener('scroll',()=>window.scrollTo(0,0));
+ let _fr=0;const fit=()=>{if(_fr)return;_fr=requestAnimationFrame(()=>{_fr=0;window.scrollTo(0,0);const kb=vv.height>200&&window.innerHeight-vv.height>80;if(kb){app.style.height=vv.height+'px';app.style.transform=vv.offsetTop?'translateY('+vv.offsetTop+'px)':'';app.classList.add('kb')}else{app.style.height='';app.style.transform='';app.classList.remove('kb')}})};
+ vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);
  $('#inp').addEventListener('focus',()=>{setTimeout(()=>window.scrollTo(0,0),50);setTimeout(()=>window.scrollTo(0,0),300)})})();
 const lbE=document.createElement('div');lbE.id='lb';lbE.onclick=()=>lbE.classList.remove('on');$('#app').appendChild(lbE);
 function lb(u){lbE.innerHTML='<img src="'+u+'">';lbE.classList.add('on')}
@@ -1055,7 +1096,7 @@ async function addFiles(list){const all=[...list];if(!all.length)return;
  if(perDay<=0){toast('Сегодня можно отправить не больше 30 фото','Лимит','image');return}
  const left=Math.min(perMsg,perDay);
  if(fs.length>left){toast(perDay<perMsg?'Дневной лимит — 30 фото. Добавил '+left:'В сообщении максимум 10 фото. Добавил '+left,'Лимит','image');fs=fs.slice(0,left)}
- let bad=0;for(const f of fs){try{const im=await decode(f);ATT.push({f:cv(im,1280,.82),t:cv(im,320,.6)});if(im.close)im.close();drawAtt()}catch(_){bad++}}
+ let bad=0;for(const f of fs){try{const im=await decode(f);ATT.push({f:cv(im,1280,.82),t:cv(im,320,.6),h:cv(im,2000,.88)});if(im.close)im.close();drawAtt()}catch(_){bad++}}
  drawAtt();if(bad)toast('Не удалось открыть фото: '+bad+' (формат не поддерживается)','Фото','image')}
 $('#inp').addEventListener('paste',e=>{const fs=[...((e.clipboardData&&e.clipboardData.files)||[])];if(fs.length){e.preventDefault();addFiles(fs)}});
 ['dragover','drop'].forEach(ev=>document.addEventListener(ev,e=>{if(!e.dataTransfer||![...(e.dataTransfer.types||[])].includes('Files'))return;e.preventDefault();if(ev==='drop')addFiles(e.dataTransfer.files)}));

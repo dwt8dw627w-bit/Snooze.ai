@@ -671,11 +671,15 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const GROQ_KEY='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';
 let _gm=null;
 async function pickModel(vision){
- if(!_gm){try{const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+GROQ_KEY}});const j=await r.json();_gm=(j.data||[]).map(m=>m.id)}catch(e){_gm=[]}}
- const has=id=>_gm.includes(id);
- if(vision){const v=_gm.find(id=>/(vision|scout|maverick|llava|qwen.*vl|gemma-3|pixtral)/i.test(id)&&!/guard|safeguard/i.test(id));if(v)return v;throw {code:'novision',msg:'Для фото нет доступной модели в Groq'}}
+ if(!_gm){try{const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+GROQ_KEY}});const j=await r.json();_gm=j.data||[]}catch(e){_gm=[]}}
+ const ids=_gm.map(m=>m.id),has=id=>ids.includes(id);
+ if(vision){
+  const byMod=_gm.find(m=>Array.isArray(m.input_modalities)&&m.input_modalities.includes('image')&&!/guard/i.test(m.id));if(byMod)return byMod.id;
+  for(const id of ['qwen/qwen3.6-27b','meta-llama/llama-4-scout-17b-16e-instruct','meta-llama/llama-4-maverick-17b-128e-instruct'])if(has(id))return id;
+  const v=ids.find(id=>/(vision|scout|maverick|llava|qwen3\.6|qwen.*vl|gemma-3|pixtral)/i.test(id)&&!/guard/i.test(id));if(v)return v;
+  return 'qwen/qwen3.6-27b'}
  for(const id of ['openai/gpt-oss-120b','openai/gpt-oss-20b','llama-3.3-70b-versatile','llama-3.1-8b-instant'])if(has(id))return id;
- return _gm.find(id=>!/whisper|guard|tts|embed|orpheus/i.test(id))||'openai/gpt-oss-120b'}
+ return 'openai/gpt-oss-120b'}
 const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
 const sv=(k,v)=>{let ok=false;try{localStorage.setItem(k,JSON.stringify(v));ok=true}catch(e){}try{if(window.storage)Promise.resolve(window.storage.set(k,JSON.stringify(v))).catch(()=>{})}catch(e){}try{if(k==='snz')document.cookie='snzS='+(v.started?1:0)+';max-age=31536000;path=/;SameSite=Lax'}catch(e){}return ok};
 let S=ld('snz',{name:'Снуз',persona:'',prof:false,theme:0});
@@ -846,10 +850,10 @@ async function send(){
     if(hasI){const last=msgs[msgs.length-1];last.content=[{type:'text',text:last.content},...um.full.slice(0,5).map(d=>({type:'image_url',image_url:{url:d}}))]}
     const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),60000);
     try{const mdl=await pickModel(hasI);
-     const body={model:mdl,max_tokens:S.len===2?4096:2048,messages:msgs};if(/gpt-oss/.test(mdl))body.reasoning_effort='low';
+     const body={model:mdl,max_tokens:S.len===2?6000:4096,messages:msgs};if(/gpt-oss/.test(mdl))body.reasoning_effort='low';
      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json','Authorization':'Bearer '+GROQ_KEY},body:JSON.stringify(body)});
      const j=await r.json();if(!r.ok)throw {code:(r.status===401||r.status===403)?'badkey':'api',msg:j&&j.error&&j.error.message};
-     return (j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||''}
+     return String((j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim()}
     finally{clearTimeout(to)}};
    for(let i=0;i<2&&!txt;i++){
     if(document.hidden)await new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)});

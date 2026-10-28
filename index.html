@@ -1498,7 +1498,7 @@ const view=()=>{
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 const open=()=>{st.err='';st.info='';st.m=A?'me':'in';view();root.hidden=false};
 const close=()=>{root.hidden=true};
-const run=async fn=>{st.busy=true;st.err='';st.info='';view();try{await fn()}catch(e){st.err=(e&&e.msg)||'Что-то пошло не так'}st.busy=false;view()};
+const run=async fn=>{st.busy=true;st.err='';st.info='';box.querySelectorAll('button').forEach(x=>x.disabled=true);try{await fn()}catch(e){st.err=(e&&e.msg)||'Что-то пошло не так'}st.busy=false;view()};
 root.addEventListener('click',ev=>{
  if(ev.target===root){close();return}
  const b=ev.target.closest('[data-a]');if(!b||st.busy)return;const a=b.dataset.a;

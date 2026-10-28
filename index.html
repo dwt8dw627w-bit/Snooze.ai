@@ -277,7 +277,7 @@ button,.row,.tab{touch-action:manipulation}
 .fb{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,var(--bg) 56%,color-mix(in srgb,var(--a2) 45%,var(--bg)));box-shadow:0 0 0 1.5px var(--line);transition:transform .18s var(--ez),box-shadow .25s}.fb svg{width:62%}.fb.on{box-shadow:0 0 0 2.5px var(--a1),0 0 14px color-mix(in srgb,var(--a1) 60%,transparent)}.fb:active{transform:scale(.92)}
 #snds .row.card{padding:13px 14px}
 #toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:60;width:min(92%,380px);display:flex;align-items:center;gap:13px;padding:13px 16px 17px 13px;border-radius:24px;color:#fff;pointer-events:none;opacity:0;transform:translate(-50%,-24px) scale(.92);background:linear-gradient(135deg,rgba(40,38,96,.82),rgba(20,20,52,.86));border:1px solid rgba(255,255,255,.16);-webkit-backdrop-filter:blur(18px) saturate(180%);backdrop-filter:blur(18px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 14px 36px rgba(0,0,0,.5);overflow:hidden;transition:opacity .25s ease,transform .5s cubic-bezier(.34,1.4,.64,1)}
-#toast.on{opacity:1;transform:translate(-50%,0) scale(1)}
+#toast.on{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto;touch-action:none}
 #toast .ti{width:42px;height:42px;border-radius:14px;flex:none;display:grid;place-items:center;background:var(--grad);box-shadow:0 6px 16px -4px color-mix(in srgb,var(--a1) 70%,transparent)}
 #toast .ti .i{width:22px;height:22px;stroke:#fff}
 #toast .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
@@ -889,8 +889,15 @@ async function send(){
       return await call(body)}
      const SOLVE='Ты решаешь школьные тесты. Выводи ТОЛЬКО результат: без вступлений, без приветствий, без пояснений, без рассуждений, без итогового списка в конце.'+NOMD+' Формат строго такой для каждого задания:\n1. <текст задания одной строкой, без вариантов ответа>\nОтвет: <буква>) <текст верного варианта>\n\nМежду заданиями пустая строка. Если нужно расставить по порядку, используй ВСЕ варианты из условия, каждую букву ровно один раз (число букв равно числу вариантов и пустых клеток) и пиши так: Ответ: Г, Б, В, А (затем в скобках расшифровка через запятую). Перед ответом пересчитай буквы: ни один вариант не должен потеряться. Если на фото несколько листов или вариантов, перед заданиями каждого листа напиши одну строку с названием варианта (например: 1 вариант). Внутри себя тщательно проверяй каждый вариант по фактам, выбирай один самый точный. Если текст задания обрезан или нечитаем, всё равно дай наиболее вероятный ответ и допиши в той же строке «(текст неполный)».';
      const q0=(um.content||'').trim()||'Реши задания';
+      const isTest=!(um.content||'').trim()||/реши|решит|решен|тест|задани|контрольн|самостоятельн|вариант\s*\d|номер\s*\d|ответь\s+на\s+вопрос|отметь|выбери\s+правильн/i.test(q0);
+      if(!isTest){
+       const CH='Пользователь прислал фото и задал вопрос. Отвечай именно на его вопрос, как в обычном разговоре: при необходимости коротко опиши, что видишь, дай свой вывод и объясни почему. Не оформляй ответ как школьный тест и не пиши «Ответ: А)».'+NOMD;
+       const vm0=await pickModel(true),ms=mk(),lm=ms[ms.length-1];
+       lm.content=[{type:'text',text:(typeof lm.content==='string'&&lm.content)||'Посмотри на фото.'},...um.full.slice(0,5).map(d=>({type:'image_url',image_url:{url:d}}))];
+       const b0={model:vm0,max_tokens:S.len===2?3000:1500,messages:[{role:'system',content:CH},...ms]};if(/qwen/.test(vm0))b0.reasoning_effort='none';
+       return await call(b0)}
      /* Этап 1: фото -> текст (в высоком разрешении) */
-     toast('Читаю текст с фото…','Шаг 1 из 2','image');
+     
      const vm=await pickModel(true),imgs=(um.hi&&um.hi.length?um.hi:um.full).slice(0,5),tr=[];
      const ocrP='Перепиши ДОСЛОВНО весь печатный текст с этой фотографии: номера заданий, условия и ВСЕ варианты ответов (А, Б, В, Г) целиком, а также пустые клетки для ответа, если они есть. Лист может быть снят под углом, строки наклонены: читай внимательно, по порядку сверху вниз. Рукописные подписи (фамилии) пропусти. Если слово не читается, поставь [?]. Ничего не решай и не добавляй.';
      for(let i=0;i<imgs.length;i++){
@@ -900,15 +907,15 @@ async function send(){
       try{let r=await raw(bb()),tx=r.text;
        for(let k=0;k<2&&r.cut&&tx;k++){mm.push({role:'assistant',content:tx},{role:'user',content:'Продолжи с того места, где остановился, без повторов.'});r=await raw(bb());tx+=' '+r.text;mm.length=1}
        if(tx)tr.push((imgs.length>1?'Фото '+(i+1)+':\n':'')+tx)}
-      catch(e){if(e&&e.code==='badkey')throw e;toast('Фото '+(i+1)+': '+((e&&(e.msg||e.message))||'ошибка чтения'),'Шаг 1 из 2','info')}
+      catch(e){if(e&&e.code==='badkey')throw e;toast('Фото '+(i+1)+': '+((e&&(e.msg||e.message))||'ошибка чтения'),'Фото','info')}
      }
      if(!tr.length){
-      toast('Не вышло прочитать текст, решаю по картинке','Фото','image');
+      
       const m2=[{role:'system',content:SOLVE},{role:'user',content:[{type:'text',text:q0},...imgs.map(d=>({type:'image_url',image_url:{url:d}}))]}];
       const b={model:vm,max_tokens:900,messages:m2};if(/qwen/.test(vm))b.reasoning_effort='none';return await call(b)}
      /* Этап 2: решение сильной текстовой моделью с размышлением */
      const m3=[{role:'system',content:SOLVE},{role:'user',content:q0+'\n\nТекст с фото (распознан автоматически, возможны мелкие ошибки: исправляй по смыслу):\n'+tr.join('\n\n')}];
-     toast('Решаю, это может занять до минуты…','Шаг 2 из 2','info');
+     
      const tm=await pickModel(false),b2={model:tm,max_tokens:6000,messages:m3};
      if(/gpt-oss/.test(tm))b2.reasoning_effort='high';
      return await call(b2)
@@ -999,16 +1006,23 @@ var SLS=[];
 
 /* ===== Тост ===== */
 function toast(m,ti,ic){const e=$('#toast');e.querySelector('.ti').innerHTML=I(ic||'spark');const b=e.querySelector('b');b.textContent=ti||'';b.hidden=!ti;e.querySelector('.tt span').textContent=m;e.classList.remove('on');void e.offsetWidth;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3000)}
+(()=>{const e=document.getElementById('toast');if(!e)return;let y0=null,dy=0;
+ e.addEventListener('touchstart',ev=>{y0=ev.touches[0].clientY;dy=0;clearTimeout(e._t);e.style.transition='none'},{passive:true});
+ e.addEventListener('touchmove',ev=>{if(y0==null)return;dy=Math.min(0,ev.touches[0].clientY-y0);e.style.transform='translate(-50%,'+dy+'px) scale(1)'},{passive:true});
+ const end=()=>{if(y0==null)return;y0=null;e.style.transition='';if(dy<-20){e.style.transform='translate(-50%,-160px) scale(.92)';e.style.opacity='0';setTimeout(()=>{e.classList.remove('on');e.style.transform='';e.style.opacity=''},260)}else{e.style.transform='';e._t=setTimeout(()=>e.classList.remove('on'),2000)}};
+ e.addEventListener('touchend',end);e.addEventListener('touchcancel',end)})();
 $('#rPriv').onclick=()=>toast('Не рассказываем секреты пользователей :)','Конфиденциальность','lock');
 $('#rVer').onclick=()=>toast('Самая последняя версия между прочим!','Версия 2.1','info');
 
 /* ===== Звуки (WebAudio, реальная громкость) ===== */
 const SND=[['Классика','classic'],['Бульк','blob'],['Клик','click'],['Тик','tick']];
 let AC=null;
-function ac(){try{if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(C)AC=new C()}if(AC&&AC.state==='suspended')AC.resume()}catch(e){}return AC}
+function ac(){try{if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(C){AC=new C();try{const b0=AC.createBuffer(1,1,22050),s0=AC.createBufferSource();s0.buffer=b0;s0.connect(AC.destination);s0.start(0)}catch(_){}}}if(AC&&AC.state!=='running')AC.resume()}catch(e){}return AC}
 ['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>ac(),{passive:true}));
 function playSnd(id,vol){
  id=id||S.ns;vol=vol==null?S.nv:vol;const a=ac();if(!a||vol<=0)return;
+ try{if(navigator.audioSession){navigator.audioSession.type='playback';clearTimeout(playSnd._t);playSnd._t=setTimeout(()=>{try{navigator.audioSession.type='auto'}catch(_){}},2500)}}catch(_){}
+ if(a.state!=='running'&&!playSnd._r){a.resume().then(()=>{playSnd._r=1;try{playSnd(id,vol)}finally{playSnd._r=0}}).catch(()=>{});return}
  const m=a.createGain();m.gain.value=Math.pow(vol/100,1.6);m.connect(a.destination);const t=a.currentTime;
  const env=(g,at,pk,dec)=>{g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(pk,at+.006);g.gain.exponentialRampToValueAtTime(0.0001,at+dec)};
  const tone=(type,f1,f2,at,pk,dec)=>{const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(f1,at);if(f2)o.frequency.exponentialRampToValueAtTime(f2,at+Math.min(.12,dec*.6));env(g,at,pk,dec);o.connect(g);g.connect(m);o.start(at);o.stop(at+dec+.05)};

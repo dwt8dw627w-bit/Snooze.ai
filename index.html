@@ -1630,13 +1630,20 @@ document.body.insertAdjacentHTML('beforeend',"<svg width='0' height='0' style='p
 /* перевод интерфейса */
 let TC={};try{TC=JSON.parse(localStorage.getItem('snzTr')||'{}')}catch(_){}
 const TO=new WeakMap(),TF=new Set();let TB=0;
-function trNodes(){const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement;return(!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.tagName)||p.closest('#msgs,#live,#toast')||!/[А-Яа-яЁё]/.test(TO.get(n)||n.nodeValue))?2:1}}),a=[];while(w.nextNode())a.push(w.currentNode);return a}
+function trNodes(){const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement;return(!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.tagName)||p.closest('#msgs,#live,#toast,#lgs')||!/[А-Яа-яЁё]/.test(TO.get(n)||n.nodeValue))?2:1}}),a=[];while(w.nextNode())a.push(w.currentNode);return a}
 async function gtx(t,l){const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&dt=t&tl='+l+'&q='+encodeURIComponent(t)),j=await r.json();return j[0].map(x=>x[0]).join('')}
-async function trApply(){if(TB)return;TB=1;try{const l=LG()[0],ns=trNodes();ns.forEach(n=>{if(!TO.has(n))TO.set(n,n.nodeValue)});
- if(l!=='ru'){const need=[...new Set(ns.map(n=>TO.get(n).trim()).filter(t=>t&&!TC[l+'|'+t]&&!TF.has(l+'|'+t)))];let bad=0;
-  for(let i=0;i<need.length;i+=10)await Promise.all(need.slice(i,i+10).map(async t=>{try{const v=await gtx(t,l);if(v)TC[l+'|'+t]=v;else TF.add(l+'|'+t)}catch(e){TF.add(l+'|'+t);bad++}}));
+let TQ=0;
+async function trApply(){if(TB){TQ=1;return}TB=1;try{const l=LG()[0],ns=trNodes();ns.forEach(n=>{if(!TO.has(n))TO.set(n,n.nodeValue)});
+ const paint=()=>ns.forEach(n=>{const o=TO.get(n),t=o.trim(),v=l==='ru'?t:TC[l+'|'+t];if(v&&n.nodeValue!==o.replace(t,v))n.nodeValue=o.replace(t,v)});
+ if(l!=='ru'){const need=[...new Set(ns.map(n=>TO.get(n).trim()).filter(t=>t&&!TC[l+'|'+t]))];let bad=0;
+  if(need.length>3)toast('Перевожу…','Язык','info');
+  const one=async t=>{for(let k=0;k<3;k++){try{const v=await gtx(t,l);if(v){TC[l+'|'+t]=v;return}}catch(e){}await new Promise(r=>setTimeout(r,300*(k+1)))}bad++};
+  const gtb=async arr=>{const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&dt=t&tl='+l,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'q='+encodeURIComponent(arr.join('\n'))}),j=await r.json(),out=j[0].map(x=>x[0]).join('').split('\n').map(x=>x.trim());if(out.length!==arr.length)throw 0;return out};
+  const chunks=[];for(let i=0;i<need.length;i+=30)chunks.push(need.slice(i,i+30));let ci=0;
+  const worker=async()=>{while(ci<chunks.length&&LG()[0]===l){const c=chunks[ci++];try{const o=await gtb(c);c.forEach((t,i)=>{if(o[i])TC[l+'|'+t]=o[i]})}catch(e){for(const t of c)await one(t)}paint()}};
+  await Promise.all([worker(),worker(),worker(),worker()]);
   if(need.length){try{localStorage.setItem('snzTr',JSON.stringify(TC))}catch(_){}if(bad>need.length/2)toast('Не удалось перевести: проверь интернет','Язык','info')}}
- ns.forEach(n=>{const o=TO.get(n),t=o.trim(),v=l==='ru'?t:TC[l+'|'+t];if(v&&n.nodeValue!==o.replace(t,v))n.nodeValue=o.replace(t,v)})}finally{TB=0}}
+ if(LG()[0]===l)paint()}finally{TB=0;if(TQ){TQ=0;setTimeout(trApply,150)}}}
 {const g0=go;go=function(){const r=g0.apply(this,arguments);setTimeout(trApply,350);return r};let tm;new MutationObserver(()=>{if(LG()[0]==='ru')return;clearTimeout(tm);tm=setTimeout(trApply,500)}).observe(document.body,{childList:true,subtree:true});
  const u0=lgUI;lgUI=function(){u0();trApply()};setTimeout(trApply,800)}
 /* авто-лайт: если кадров мало, отключаем тяжёлые эффекты */

@@ -1638,10 +1638,11 @@ async function trApply(){if(TB){TQ=1;return}TB=1;try{const l=LG()[0],ns=trNodes(
  if(l!=='ru'){const need=[...new Set(ns.map(n=>TO.get(n).trim()).filter(t=>t&&!TC[l+'|'+t]))];let bad=0;
   if(need.length>3)toast('Перевожу…','Язык','info');
   const one=async t=>{for(let k=0;k<3;k++){try{const v=await gtx(t,l);if(v){TC[l+'|'+t]=v;return}}catch(e){}await new Promise(r=>setTimeout(r,300*(k+1)))}bad++};
-  const gtb=async arr=>{const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&dt=t&tl='+l,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'q='+encodeURIComponent(arr.join('\n'))}),j=await r.json(),out=j[0].map(x=>x[0]).join('').split('\n').map(x=>x.trim());if(out.length!==arr.length)throw 0;return out};
-  const chunks=[];for(let i=0;i<need.length;i+=30)chunks.push(need.slice(i,i+30));let ci=0;
-  const worker=async()=>{while(ci<chunks.length&&LG()[0]===l){const c=chunks[ci++];try{const o=await gtb(c);c.forEach((t,i)=>{if(o[i])TC[l+'|'+t]=o[i]})}catch(e){for(const t of c)await one(t)}paint()}};
-  await Promise.all([worker(),worker(),worker(),worker()]);
+  const LN={en:'English',de:'German',fr:'French',es:'Spanish',it:'Italian',uk:'Ukrainian',tr:'Turkish',pt:'Portuguese'},sl=ms=>new Promise(r=>setTimeout(r,ms));
+  const gtb=async arr=>{for(let k=0;k<4;k++){const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+GROQ_KEY},body:JSON.stringify({model:'llama-3.3-70b-versatile',temperature:0,response_format:{type:'json_object'},messages:[{role:'system',content:'You translate short app UI strings from Russian to '+(LN[l]||l)+'. Keep emoji, numbers, punctuation and line breaks. Reply ONLY with JSON {"t":[...]} where t has exactly the same number of items in the same order.'},{role:'user',content:JSON.stringify(arr)}]})});if(r.status===429||r.status>=500){await sl((k+1)*2500);continue}const j=await r.json(),o=JSON.parse(j.choices[0].message.content).t;if(!Array.isArray(o)||o.length!==arr.length)throw 0;return o.map(x=>String(x).trim())}throw 0};
+  const chunks=[];for(let i=0;i<need.length;i+=25)chunks.push(need.slice(i,i+25));let ci=0;
+  const worker=async()=>{while(ci<chunks.length&&LG()[0]===l){const c=chunks[ci++];try{const o=await gtb(c);c.forEach((t,i)=>{if(o[i])TC[l+'|'+t]=o[i]})}catch(e){for(let h=0;h<c.length;h+=8){const p=c.slice(h,h+8);try{const o=await gtb(p);p.forEach((t,i)=>{if(o[i])TC[l+'|'+t]=o[i]})}catch(_){bad+=p.length}}}paint()}};
+  await Promise.all([worker(),worker()]);
   if(need.length){try{localStorage.setItem('snzTr',JSON.stringify(TC))}catch(_){}if(bad>need.length/2)toast('Не удалось перевести: проверь интернет','Язык','info')}}
  if(LG()[0]===l)paint()}finally{TB=0;if(TQ){TQ=0;setTimeout(trApply,150)}}}
 {const g0=go;go=function(){const r=g0.apply(this,arguments);setTimeout(trApply,350);return r};let tm;new MutationObserver(()=>{if(LG()[0]==='ru')return;clearTimeout(tm);tm=setTimeout(trApply,500)}).observe(document.body,{childList:true,subtree:true});

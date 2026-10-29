@@ -742,10 +742,10 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 <script>
 const I=n=>`<svg class="i"><use href="#i-${n}"/></svg>`;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const GROQ_KEY='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';
+const AI_API='/api/chat';
 let _gm=null;
 async function pickModel(vision){
- if(!_gm){try{const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{'Authorization':'Bearer '+GROQ_KEY}});const j=await r.json();_gm=j.data||[]}catch(e){_gm=[]}}
+ if(!_gm){try{const r=await fetch(AI_API);const j=await r.json();_gm=j.data||[]}catch(e){_gm=[]}}
  const ids=_gm.map(m=>m.id),has=id=>ids.includes(id);
  if(vision){
   const byMod=_gm.find(m=>Array.isArray(m.input_modalities)&&m.input_modalities.includes('image')&&!/guard/i.test(m.id));if(byMod)return byMod.id;
@@ -923,12 +923,12 @@ async function send(){
     const o={cache:false,onText:({text})=>{am.content=text}};
     if(hasI){try{if((await tmo(sample.limits(),4000)).images)o.images=blobs()}catch(_){}}
     const r=await sample(mk(),o);return (r&&r.text)||am.content||''};
-   const viaKey=async()=>{if(!GROQ_KEY)throw {code:'nokey'};
+   const viaKey=async()=>{
     const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),170000);
     const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     const raw=async(body)=>{let j=null;
      for(let t=0;t<6;t++){
-      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json','Authorization':'Bearer '+GROQ_KEY},body:JSON.stringify(body)});
+      const r=await fetch(AI_API,{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json'},body:JSON.stringify(body)});
       j=await r.json();if(r.ok)break;
       const em=String(j&&j.error&&j.error.message||'');
       if(r.status===401||r.status===403)throw {code:'badkey',msg:em};
@@ -984,7 +984,7 @@ async function send(){
    for(let i=0;i<2&&!txt;i++){
     if(document.hidden)await new Promise(r=>{const f=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',f);r()}};document.addEventListener('visibilitychange',f)});
     try{txt=await viaHost()}catch(e){am.content='';am.shown=0;code=e&&e.code;if(code==='nohost'||code==='not_granted'||code==='unavailable')break;await new Promise(r=>setTimeout(r,600*(i+1)))}}
-   if(!txt&&GROQ_KEY){try{txt=await viaKey()}catch(e){am.content='';am.shown=0;code=e&&e.code;window.__aiErr=e;if(code!=='badkey')toast('Ошибка ИИ: '+((e&&(e.msg||e.message))||code||'нет связи с api.groq.com'),'API','info');if(code==='badkey')toast('Ключ API не подошёл','API','info')}}
+   if(!txt){try{txt=await viaKey()}catch(e){am.content='';am.shown=0;code=e&&e.code;window.__aiErr=e;if(code!=='badkey')toast('Ошибка ИИ: '+((e&&(e.msg||e.message))||code||'нет связи с api.groq.com'),'API','info');if(code==='badkey')toast('Ключ API не подошёл','API','info')}}
    if(!txt){txt=localReply(text,hasI);am.local=1}
    const failed=!txt;am.err=failed;
   am.content=txt;

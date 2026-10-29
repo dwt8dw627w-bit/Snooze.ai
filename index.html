@@ -2080,5 +2080,9 @@ function zzz(){$('#gt').textContent='Сонный кликер';const z=S.zz||(S
  $('#zu').onclick=e=>{const b=e.target.closest('[data-u]');if(!b)return;const k=b.dataset.u,c=C[k]();if(z.z<c){vib([8,30,8]);return}z.z-=c;if(k==='p')z.p++;else z[k]++;sv('snz',S);vib(12);gBeep(660,.1);b.classList.remove('bu');void b.offsetWidth;b.classList.add('bu');upd()};
  upd();let n=0,sh=0;const iv=setInterval(()=>{if(!GM.classList.contains('on')||!$('#zb')){clearInterval(iv);sv('snz',S);return}const g=rate()/4;if(g){z.z+=g;z.t+=g}upd();if(++n%20==0)sv('snz',S);if(z.h&&++sh%(Math.max(8,28-z.h*2))==0){const e=document.createElement('span');e.className='zsh';e.textContent='🐑';e.style.top=(40+Math.random()*30)+'%';gc.appendChild(e);setTimeout(()=>e.remove(),4300)}},250)}
 </script>
+<script>
+/* диагностика размеров: 5 быстрых тапов в левый верхний угол */
+{let c=0,t=0;const h=e=>{const p=e.touches?e.touches[0]:e;if(!p||p.clientX>120||p.clientY>120){c=0;return}const n=Date.now();c=n-t<1200?c+1:1;t=n;if(c>=5){c=0;const v=window.visualViewport;let m='inner '+innerWidth+'x'+innerHeight+'\nscreen '+screen.width+'x'+screen.height+'\nvv '+(v?Math.round(v.height):'-')+'\nhtml '+document.documentElement.clientHeight+'\napp '+($('#app')?$('#app').offsetHeight:'-')+'\nstandalone '+(navigator.standalone?1:0)+'\nv5.6';try{alert(m)}catch(_){}}};document.addEventListener('pointerdown',h,{capture:true,passive:true});}
+</script>
 </body>
 </html>

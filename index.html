@@ -700,6 +700,11 @@ button:active{transform:scale(.93)!important;transition-duration:.08s!important}
 <style id="v55">
 .orb,html[data-lt="1"] .orb{background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.42),rgba(255,255,255,0) 42%) padding-box,radial-gradient(circle at 70% 85%,rgba(0,0,0,.28),rgba(0,0,0,0) 55%) padding-box,linear-gradient(150deg,color-mix(in srgb,var(--a1) 92%,#fff),var(--a2)) padding-box,var(--ring,linear-gradient(var(--av,var(--a1)),var(--av,var(--a1)))) border-box}
 </style>
+<style id="v57">
+html,body{overscroll-behavior:none;scroll-behavior:auto!important}
+#app.kb *,#app.kb *::before,#app.kb *::after{animation-play-state:paused!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;transition:none!important}
+#app.kb{transition:none!important}
+</style>
 </head>
 <body>
 <div id="app">
@@ -1281,7 +1286,7 @@ document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault
 let _lt=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-_lt<320&&!e.target.closest('#game,#pop,#sheet,#mapv'))e.preventDefault();_lt=n},{passive:false});
 (()=>{const vv=window.visualViewport,app=$('#app');if(!vv)return;
  let _fr=0,_h=-1,_t=-1,_k=0;const fit=()=>{if(_fr)return;_fr=requestAnimationFrame(()=>{_fr=0;const kb=vv.height>200&&window.innerHeight-vv.height>80,h=Math.round(vv.height),t=Math.round(vv.offsetTop);
-  if(kb){if(h!==_h){app.style.height=h+'px';_h=h}if(t!==_t){app.style.transform=t?'translate3d(0,'+t+'px,0)':'';_t=t}if(!_k){app.classList.add('kb');_k=1}}
+  if(kb){if(Math.abs(h-_h)>3){app.style.height=h+'px';_h=h}if(Math.abs(t-_t)>3){app.style.transform=t>3?'translate3d(0,'+t+'px,0)':'';_t=t}if(!_k){app.classList.add('kb');_k=1}}
   else if(_k||_h!==-1){app.style.height='';app.style.transform='';app.classList.remove('kb');_h=-1;_t=-1;_k=0}})};
  vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);
  $('#inp').addEventListener('focus',()=>{setTimeout(()=>{if(window.scrollY)window.scrollTo(0,0)},400)})})();
